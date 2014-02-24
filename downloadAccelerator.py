@@ -27,13 +27,6 @@ class Downloader:
             os.makedirs(self.dir)'''
 
     def download(self):
-        ''' download the files listed in the input file '''
-        # setup URLs
-        '''urls = []
-        f = open(self.in_file,'r')
-        for line in f.readlines():
-            urls.append(line.strip())
-        f.close()'''
         # setup download locations
         file = self.url.split('/')[-1].strip()
         # get header content-length
@@ -41,26 +34,17 @@ class Downloader:
         headers = r.headers
         #print headers['content-length']
         contentLength = int(headers['content-length'])
-        
         curByte = 0
         nth = contentLength / self.threads
-        
         sharedDictionary = {}
         # create a thread for each url
         threads = []
-        
         for x in range(0, self.threads - 1):
             d= DownThread(self.url,curByte,curByte + nth,sharedDictionary,x)
             threads.append(d)
             curByte += nth + 1
-        
         d= DownThread(self.url,curByte,contentLength,sharedDictionary,self.threads - 1)
         threads.append(d)
-        
-        '''for f,url in zip(files,urls):
-            filename = self.dir + '/' + f
-            d = DownThread(url,filename)
-            threads.append(d)'''
         start_time = time.time()
         for t in threads:
             t.start()
@@ -78,21 +62,14 @@ class DownThread(threading.Thread):
         self.url = url
         self.startByte = str(startByte)
         self.endByte = str(endByte)
-        #print str(index) + ': ' + self.startByte + ' - ' + self.endByte
         self.sharedDictionary = sharedDict
         self.index = index
-        #print str(startByte) + ' - ' + str(endByte)
         threading.Thread.__init__(self)
         self._content_consumed = False
 
     def run(self):
-        #print 'Downloading %s' % self.url
         r = requests.get(self.url, stream=True, headers={'Range': 'bytes={0}-{1}'.format(self.startByte,self.endByte),'accept-encoding': ''})
-        #print r.content
-        #print r
         self.sharedDictionary[self.index] = r.content
-        #with open(self.filename, 'wb') as f:
-         #   f.write(r.content)
  
 if __name__ == '__main__':
     d = Downloader()
