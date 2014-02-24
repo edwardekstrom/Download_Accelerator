@@ -17,7 +17,7 @@ class Downloader:
     def parse_arguments(self):
         ''' parse arguments, which include file '-d' for download directory'''
         parser = argparse.ArgumentParser(prog='Mass downloader', description='A simple script that downloads multiple files from a list of URLs specified in a file', add_help=True)
-        parser.add_argument('--url', type=str, action='store', help='The URL to download',default='http://174.52.164.54/files/design-philosophy-sigcomm-88.pdf')
+        parser.add_argument('url', type=str, action='store', help='The URL to download',default='http://174.52.164.54/files/design-philosophy-sigcomm-88.pdf')
         parser.add_argument('-n', '--threads', type=int, action='store', help='Specify the number of threads used to download the file.',default=10)
         args = parser.parse_args()
         self.url = args.url
@@ -39,12 +39,22 @@ class Downloader:
         r = requests.head(self.url, stream=True)
         headers = r.headers
         print headers['content-length']
-        contentLength = headers['content-length']
+        contentLength = int(headers['content-length'])
+        
+        curByte = 0
+        nth = contentLength / self.threads
+        
         sharedDictionary = {}
         # create a thread for each url
         threads = []
-        d= DownThread(self.url,0,contentLength,sharedDictionary,0)
+        for x in range(0, self.threads - 1):
+            d= DownThread(self.url,curByte,curByte + nth,sharedDictionary,x)
+            threads.append(d)
+            curByte += nth + 1
+        
+        d= DownThread(self.url,curByte,contentLength,sharedDictionary,self.threads - 1)
         threads.append(d)
+        
         '''for f,url in zip(files,urls):
             filename = self.dir + '/' + f
             d = DownThread(url,filename)
@@ -54,7 +64,8 @@ class Downloader:
         for t in threads:
             t.join()
         with open(file, 'wb') as f:
-            f.write(sharedDictionary[0])
+            for x in range(0, self.threads):
+                f.write(sharedDictionary[x])
 
 ''' Use a thread to download part of a given file'''
 class DownThread(threading.Thread):
@@ -62,6 +73,7 @@ class DownThread(threading.Thread):
         self.url = url
         self.startByte = str(startByte)
         self.endByte = str(endByte)
+        print str(index) + ': ' + self.startByte + ' - ' + self.endByte + '\n'
         self.sharedDictionary = sharedDict
         self.index = index
         #print str(startByte) + ' - ' + str(endByte)
@@ -69,7 +81,7 @@ class DownThread(threading.Thread):
         self._content_consumed = False
 
     def run(self):
-        print 'Downloading %s' % self.url
+        #print 'Downloading %s' % self.url
         r = requests.get(self.url, stream=True, headers={'Range': 'bytes={0}-{1}'.format(self.startByte,self.endByte),'accept-encoding': ''})
         #print r.content
         print r
